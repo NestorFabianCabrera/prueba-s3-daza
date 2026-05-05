@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PulseBoard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>⚡ PulseBoard</h1>
+    <span id="status-badge" class="badge badge-ok">conectado</span>
+    <span id="last-update" class="last-update"></span>
+  </header>
+
+  <nav>
+    <button class="tab active" data-tab="summary">Resumen</button>
+    <button class="tab" data-tab="metrics">Métricas</button>
+    <button class="tab" data-tab="alerts">Alertas</button>
+    <button class="tab" data-tab="send">Enviar métrica</button>
+  </nav>
+
+  <main>
+    <!-- SUMMARY -->
+    <section id="tab-summary" class="tab-content active">
+      <h2>Resumen últimos 5 minutos</h2>
+      <div id="summary-grid" class="card-grid"></div>
+    </section>
+
+    <!-- METRICS -->
+    <section id="tab-metrics" class="tab-content">
+      <h2>Métricas recientes</h2>
+      <div class="filter-bar">
+        <label>Servicio:
+          <select id="filter-service"><option value="">Todos</option></select>
+        </label>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Tiempo</th><th>Servicio</th><th>Métrica</th><th>Valor</th></tr>
+        </thead>
+        <tbody id="metrics-tbody"></tbody>
+      </table>
+    </section>
+
+    <!-- ALERTS -->
+    <section id="tab-alerts" class="tab-content">
+      <h2>Alertas</h2>
+      <div id="alert-count" class="alert-count"></div>
+      <table>
+        <thead>
+          <tr><th>Tiempo</th><th>Servicio</th><th>Métrica</th><th>Valor</th><th>Umbral</th></tr>
+        </thead>
+        <tbody id="alerts-tbody"></tbody>
+      </table>
+    </section>
+
+    <!-- SEND -->
+    <section id="tab-send" class="tab-content">
+      <h2>Enviar métrica de prueba</h2>
+      <form id="metric-form" class="send-form">
+        <label>Servicio
+          <input type="text" id="f-service" value="web-server-01" required />
+        </label>
+        <label>Nombre de métrica
+          <select id="f-metric">
+            <option>cpu_usage</option>
+            <option>memory_usage</option>
+            <option>error_rate</option>
+            <option>response_time_ms</option>
+          </select>
+        </label>
+        <label>Valor
+          <input type="number" id="f-value" step="0.01" value="42.5" required />
+        </label>
+        <button type="submit">Enviar</button>
+        <p id="send-result"></p>
+      </form>
+      <div class="threshold-info">
+        <h3>Umbrales de alerta (por defecto)</h3>
+        <ul>
+          <li><code>cpu_usage</code> → &gt; 80</li>
+          <li><code>memory_usage</code> → &gt; 85</li>
+          <li><code>error_rate</code> → &gt; 5</li>
+          <li><code>response_time_ms</code> → &gt; 2000</li>
+        </ul>
+        <p>Envía un valor por encima del umbral para disparar una alerta.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

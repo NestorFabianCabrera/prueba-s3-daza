@@ -1,0 +1,236 @@
+version: '3.8'
+
+# stack-local.yml: variante para pruebas con DinD (todo en el manager)
+# En producción con nodos reales usar stack.yml
+
+secrets:
+  redis_password:
+    external: true
+  pg_password:
+    external: true
+
+networks:
+  frontend-net:
+    driver: overlay
+    attachable: true
+  backend-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  postgres-data:
+  redis-data:
+
+x-manager: &on-manager
+  placement:
+    constraints:
+      - node.role == manager
+
+services:
+
+  proxy:
+    image: pulseboard/proxy:1.0
+    ports:
+      - "80:80"
+    networks:
+      - frontend-net
+    deploy:
+      replicas: 1
+      <<: *on-manager
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 64M
+
+  dashboard:
+    image: pulseboard/dashboard:1.0
+    networks:
+      - frontend-net
+    deploy:
+      replicas: 1
+      <<: *on-manager
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 32M
+
+  ingest-api:
+    image: pulseboard/ingest-api:1.0
+    networks:
+      - frontend-net
+      - backend-net
+    secrets:
+      - redis_password
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    deploy:
+      replicas: 4
+      <<: *on-manager
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 128M
+
+  query-api:
+    image: pulseboard/query-api:1.0
+    networks:
+      - frontend-net
+      - backend-net
+    secrets:
+      - redis_password
+      - pg_password
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      POSTGRES_USER: pulseboard
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: pulseboard
+    deploy:
+      replicas: 2
+      <<: *on-manager
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 128M
+
+  aggregator:
+    image: pulseboard/aggregator:1.0
+    networks:
+      - backend-net
+    secrets:
+      - redis_password
+      - pg_password
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      POSTGRES_USER: pulseboard
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: pulseboard
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+
+  alerter:
+    image: pulseboard/alerter:1.0
+    networks:
+      - backend-net
+    secrets:
+      - redis_password
+      - pg_password
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      POSTGRES_USER: pulseboard
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: pulseboard
+      CHECK_INTERVAL: "15"
+      ALERT_COOLDOWN: "60"
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+
+  redis:
+    image: redis:7-alpine
+    command: >
+      sh -c 'redis-server --requirepass "$$(cat /run/secrets/redis_password)"'
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend-net
+    secrets:
+      - redis_password
+    deploy:
+      replicas: 1
+      <<: *on-manager
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 128M
+
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    secrets:
+      - pg_password
+    environment:
+      POSTGRES_USER: pulseboard
+      POSTGRES_DB: pulseboard
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.role == db
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 256M
+
+  jumphost:
+    image: pulseboard/jumphost:1.0
+    ports:
+      - "2222:2222"
+    networks:
+      - frontend-net
+    deploy:
+      replicas: 1
+      <<: *on-manager
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M

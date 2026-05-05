@@ -1,0 +1,38 @@
+# Secretos y configuración local
+.env
+*.env
+*.env.*
+secrets/
+**/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Docker
+*.tar
+*.tar.gz
+
+# SSH (nunca subir claves privadas)
+id_rsa
+id_ed25519
+*.pem
+*.key
+!*.pub
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
