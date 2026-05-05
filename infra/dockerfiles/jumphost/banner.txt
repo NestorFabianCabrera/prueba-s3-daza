@@ -1,7 +1,0 @@
-*******************************************************************************
-                          SISTEMA RESTRINGIDO
-*******************************************************************************
-  Acceso autorizado exclusivamente a personal de operaciones de PulseBoard.
-  Toda actividad en este sistema es registrada y monitoreada.
-  El acceso no autorizado está prohibido y será reportado.
-*******************************************************************************
