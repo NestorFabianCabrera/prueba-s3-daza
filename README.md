@@ -185,7 +185,7 @@ Un único nodo manager. Todos los servicios del stack se despliegan en él.
 
 ---
 
-## Entrega
+## Entrega (DEBE SER EN UNA RAMA CON SU APELLIDO)
 
 ```bash
 git add .
