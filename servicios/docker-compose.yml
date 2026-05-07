@@ -1,0 +1,169 @@
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    container_name: dashboard
+    hostname: dashboard
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+    secrets:
+      - db_pass                      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated               
+      replicas: 3
+      placement:
+        constraints:
+          - node.labels.tier == app  
+      update_config:
+        parallelism: 1               
+        delay: 10s                   
+        failure_action: rollback    
+        order: start-first          
+      restart_policy:
+        condition: on-failure 
+  
+  aggregator:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+    secrets:
+      - db_pass                      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated               
+      replicas: 3
+      placement:
+        constraints:
+          - node.labels.tier == app  
+      update_config:
+        parallelism: 1               
+        delay: 10s                   
+        failure_action: rollback    
+        order: start-first          
+      restart_policy:
+        condition: on-failure 
+  
+  alerter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    container_name: dashboard
+    hostname: dashboard
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+    secrets:
+      - db_pass                      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated               
+      replicas: 3
+      placement:
+        constraints:
+          - node.labels.tier == app  
+      update_config:
+        parallelism: 1               
+        delay: 10s                   
+        failure_action: rollback    
+        order: start-first          
+      restart_policy:
+        condition: on-failure 
+  
+  ingest-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    container_name: dashboard
+    hostname: dashboard
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+    secrets:
+      - db_pass                      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated               
+      replicas: 3
+      placement:
+        constraints:
+          - node.labels.tier == app  
+      update_config:
+        parallelism: 1               
+        delay: 10s                   
+        failure_action: rollback    
+        order: start-first          
+      restart_policy:
+        condition: on-failure
+  
+  query-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    container_name: dashboard
+    hostname: dashboard
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+    secrets:
+      - db_pass                      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated               
+      replicas: 3
+      placement:
+        constraints:
+          - node.labels.tier == app  
+      update_config:
+        parallelism: 1               
+        delay: 10s                   
+        failure_action: rollback    
+        order: start-first          
+      restart_policy:
+        condition: on-failure
+
+networks:
+  app-net:
+    driver: overlay  
+
+secrets:
+  db_pass:
+    external: true 

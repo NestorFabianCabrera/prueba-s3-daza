@@ -1,0 +1,56 @@
+services:
+  servidor1:
+    build:
+      context: .
+      dockerfile: Dockerfile.sshd
+      network: host
+    container_name: servidor1
+    hostname: servidor1
+    ports:
+      - "2224:22"
+    networks:
+      - app-net:
+         ipv4_address: 172.20.0.10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock 
+    privileged: true 
+
+  servidor2:
+    build:
+      context: .
+      dockerfile: Dockerfile.sshd
+      network: host
+    container_name: servidor2
+    hostname: servidor2
+    ports:
+      - "2223:22"
+    networks:
+      - app-net:
+         ipv4_address: 172.20.0.11
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock 
+    privileged: true
+  
+  jumphost:
+    build:
+      context: .
+      dockerfile: Dockerfile.sshd
+      network: host
+    container_name: jumphost
+    hostname: jumphost
+    ports:
+      - "2222:22"
+    networks:
+      - app-net:
+         ipv4_address: 172.20.0.12
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock 
+    privileged: true
+
+networks:
+  app-net:
+    driver: bridge 
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
