@@ -1,30 +1,18 @@
-
 services:
   dashboard:
     build:
-      context: .
+      context: ./dashboard
       dockerfile: Dockerfile
       network: host
-    container_name: dashboard
+    image: dashboard:latest
     hostname: dashboard
     ports:
-      - "80:80"
+      - "8080:80"
     networks:
-      - app-net
-    secrets:
-      - db_pass                      
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 5s
-      start_period: 15s
-      retries: 3
+      - frontend-net                    
     deploy:
       mode: replicated               
       replicas: 3
-      placement:
-        constraints:
-          - node.labels.tier == app  
       update_config:
         parallelism: 1               
         delay: 10s                   
@@ -34,25 +22,21 @@ services:
         condition: on-failure 
   
   aggregator:
-    image: nginx:alpine
-    ports:
-      - "80:80"
+    build:
+      context: ./aggregator
+      dockerfile: Dockerfile
+      network: host
+    image: aggregator:latest  
+    hostname: aggregator
+    environment:
+      - POSTGRES_USER=db_user
+      - POSTGRES_PASSWORD=db_pass
+      - POSTGRES_DB=db_name
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     networks:
-      - app-net
-    secrets:
-      - db_pass                      
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 5s
-      start_period: 15s
-      retries: 3
+      - backend-net                     
     deploy:
-      mode: replicated               
-      replicas: 3
-      placement:
-        constraints:
-          - node.labels.tier == app  
+      mode: global               
       update_config:
         parallelism: 1               
         delay: 10s                   
@@ -63,29 +47,22 @@ services:
   
   alerter:
     build:
-      context: .
+      context: ./alerter
       dockerfile: Dockerfile
       network: host
-    container_name: dashboard
-    hostname: dashboard
-    ports:
-      - "80:80"
+    hostname: alerter
+    image: alerter:latest
+    environment:
+      - POSTGRES_USER=db_user
+      - POSTGRES_PASSWORD=db_pass
+      - POSTGRES_DB=db_name
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     networks:
-      - app-net
+      - backend-net
     secrets:
       - db_pass                      
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 5s
-      start_period: 15s
-      retries: 3
     deploy:
-      mode: replicated               
-      replicas: 3
-      placement:
-        constraints:
-          - node.labels.tier == app  
+      mode: global               
       update_config:
         parallelism: 1               
         delay: 10s                   
@@ -96,17 +73,21 @@ services:
   
   ingest-api:
     build:
-      context: .
+      context: ./ingest-api
       dockerfile: Dockerfile
       network: host
-    container_name: dashboard
-    hostname: dashboard
+    hostname: ingest-api
+    image: ingest-api:latest
+    environment:
+      - POSTGRES_USER=db_user
+      - POSTGRES_PASSWORD=db_pass
+      - POSTGRES_DB=db_name
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     ports:
-      - "80:80"
+      - "5000:5000"
     networks:
-      - app-net
-    secrets:
-      - db_pass                      
+      - frontend-net
+      - backend-net                    
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -115,10 +96,7 @@ services:
       retries: 3
     deploy:
       mode: replicated               
-      replicas: 3
-      placement:
-        constraints:
-          - node.labels.tier == app  
+      replicas: 4 
       update_config:
         parallelism: 1               
         delay: 10s                   
@@ -129,29 +107,86 @@ services:
   
   query-api:
     build:
-      context: .
+      context: ./query-api
       dockerfile: Dockerfile
       network: host
-    container_name: dashboard
-    hostname: dashboard
+    hostname: query-api
+    image: query-api:latest
+    environment:
+      - POSTGRES_USER=db_user
+      - POSTGRES_PASSWORD=db_pass
+      - POSTGRES_DB=db_name
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     ports:
-      - "80:80"
+      - "5001:5001"
     networks:
-      - app-net
-    secrets:
-      - db_pass                      
+      - frontend-net
+      - backend-net                    
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
       timeout: 5s
       start_period: 15s
       retries: 3
     deploy:
       mode: replicated               
-      replicas: 3
+      replicas: 2
+      update_config:
+        parallelism: 1               
+        delay: 10s                   
+        failure_action: rollback    
+        order: start-first          
+      restart_policy:
+        condition: on-failure
+  
+  redis:
+    image: redis:alpine
+    networks:
+      - backend-net
+    secrets:
+      - db_pass                      
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated               
+      replicas: 1
+      update_config:
+        parallelism: 1               
+        delay: 10s                   
+        failure_action: rollback    
+        order: start-first          
+      restart_policy:
+        condition: on-failure
+  
+  postgres:
+    image: postgres:17-alpine
+    environment:
+    - POSTGRES_USER=db_user
+    - POSTGRES_PASSWORD=db_pass
+    - POSTGRES_DB=db_name
+    - POSTGRES_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    networks:
+      - backend-net
+    secrets:
+      - db_pass
+      - db_name
+      - db_user
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated               
+      replicas: 1
       placement:
         constraints:
-          - node.labels.tier == app  
+          - node.label.role == db  
       update_config:
         parallelism: 1               
         delay: 10s                   
@@ -161,9 +196,17 @@ services:
         condition: on-failure
 
 networks:
-  app-net:
+  frontend-net:
     driver: overlay  
+    attachable: true
+  backend-net:
+    driver: overlay
+    attachable: true
 
 secrets:
+  db_name:
+    file: ./secrets/db_name.txt
+  db_user:
+    file: ./secrets/db_user.txt
   db_pass:
-    external: true 
+    file: ./secrets/db_pass.txt

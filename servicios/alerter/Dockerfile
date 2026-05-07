@@ -6,21 +6,19 @@ COPY requirements.txt .
 
 RUN pip install --prefix=/install -r requirements.txt
 
-FROM python:13.2-alpine AS runtime
+FROM python:3.12-slim AS runtime
 LABEL org.opencontainers.image.title = "alerter"
 LABEL org.opencontainers.image.version = "1.0.0"
 LABEL org.opencontainers.image.created = "today"
 
 WORKDIR /app
 
-COPY --from=build /install /urs/local
+COPY --from=build /install /usr/local
 
 RUN useradd -r -s /bin/false appuser
 
 USER appuser
 
 COPY . .
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD curl -f http://localhost:5000/health || exit 1
 
 CMD ["python3", "alerter.py"]
