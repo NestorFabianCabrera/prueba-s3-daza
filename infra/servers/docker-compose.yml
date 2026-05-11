@@ -1,0 +1,37 @@
+services:
+  ssh-server-01:
+    build:
+      context: .
+      dockerfile: Dockerfile_server1.sshd
+    container_name: ssh-server-01
+    hostname: ssh-server-01
+    ports:
+      - "2223:2223"
+    networks:
+      - app-net
+
+  ssh-server-02:
+    build:
+      context: .
+      dockerfile: Dockerfile_server2.sshd
+    container_name: ssh-server-02
+    hostname: ssh-server-02
+    ports:
+      - "2224:2224"
+    networks:
+      - app-net
+
+  jumphost:
+    build:
+      context: .
+      dockerfile: Dockerfile_jumphost.sshd
+    container_name: jumphost
+    hostname: jumphost
+    ports:
+      - "2222:2222"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

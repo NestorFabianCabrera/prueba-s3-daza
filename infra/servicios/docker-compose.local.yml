@@ -1,0 +1,57 @@
+services:
+  redis:
+    command: ["redis-server", "--appendonly", "yes"]
+
+  postgres:
+    secrets: !reset []
+    environment:
+      - POSTGRES_USER=daniel
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=base
+      - POSTGRES_USER_FILE=
+      - POSTGRES_PASSWORD_FILE=
+      - POSTGRES_DB_FILE=
+
+  query-api:
+    environment:
+      - POSTGRES_DSN=postgresql://daniel:1234@postgres:5432/base
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    secrets: !reset []
+
+  aggregator:
+    environment:
+      - POSTGRES_DSN=postgresql://daniel:1234@postgres:5432/base
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    secrets: !reset []
+
+  alerter:
+    environment:
+      - POSTGRES_DSN=postgresql://daniel:1234@postgres:5432/base
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    secrets: !reset []
+
+  ingest-api:
+    secrets: !reset []
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+
+secrets:
+  db_name:
+    external: false
+    file: ../../servicios/secrets/db_name.txt
+  db_user:
+    external: false
+    file: ../../servicios/secrets/db_user.txt
+  db_pass:
+    external: false
+    file: ../../servicios/secrets/db_pass.txt
+  redis_pass:
+    external: false
+    file: ../../servicios/secrets/db_pass.txt

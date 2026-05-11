@@ -1,0 +1,278 @@
+services:
+  proxy:
+    build:
+      context: ../..
+      dockerfile: infra/servicios/proxy/Dockerfile
+    image: pulseboard/proxy:1.0
+    hostname: proxy
+    ports:
+      - "8080:80"
+    networks:
+      - frontend-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: infra/servicios/dashboard/Dockerfile
+    image: pulseboard/dashboard:1.0
+    hostname: dashboard
+    networks:
+      - frontend-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  ingest-api:
+    build:
+      context: ../..
+      dockerfile: infra/servicios/ingest-api/Dockerfile
+    image: pulseboard/ingest-api:1.0
+    hostname: ingest-api
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    secrets:
+      - redis_pass
+    networks:
+      - frontend-net
+      - backend-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: 4
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  query-api:
+    build:
+      context: ../..
+      dockerfile: infra/servicios/query-api/Dockerfile
+    image: pulseboard/query-api:1.0
+    hostname: query-api
+    environment:
+      - POSTGRES_USER=daniel
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=base
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    secrets:
+      - db_pass
+      - redis_pass
+    networks:
+      - frontend-net
+      - backend-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: 2
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  aggregator:
+    build:
+      context: ../..
+      dockerfile: infra/servicios/aggregator/Dockerfile
+    image: pulseboard/aggregator:1.0
+    hostname: aggregator
+    environment:
+      - POSTGRES_USER=daniel
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=base
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    secrets:
+      - db_pass
+      - redis_pass
+    networks:
+      - backend-net
+    deploy:
+      mode: global
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  alerter:
+    build:
+      context: ../..
+      dockerfile: infra/servicios/alerter/Dockerfile
+    image: pulseboard/alerter:1.0
+    hostname: alerter
+    environment:
+      - POSTGRES_USER=daniel
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=base
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - THRESHOLD_CPU=80
+      - THRESHOLD_MEMORY=85
+      - THRESHOLD_ERROR_RATE=5
+      - THRESHOLD_RESPONSE_TIME=2000
+    secrets:
+      - db_pass
+      - redis_pass
+    networks:
+      - backend-net
+    deploy:
+      mode: global
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  redis:
+    image: redis:7-alpine
+    command: ["/bin/sh", "-c", "redis-server --requirepass $$(cat /run/secrets/redis_pass)"]
+    secrets:
+      - redis_pass
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$(cat /run/secrets/redis_pass) ping"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_USER_FILE=/run/secrets/db_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_pass
+      - POSTGRES_DB_FILE=/run/secrets/db_name
+    secrets:
+      - db_user
+      - db_pass
+      - db_name
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints:
+          - node.labels.role == db
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  jumphost:
+    build:
+      context: ../servers
+      dockerfile: Dockerfile_jumphost.sshd
+    image: pulseboard/jumphost:1.0
+    hostname: jumphost
+    ports:
+      - "2222:2222"
+    networks:
+      - frontend-net
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+networks:
+  frontend-net:
+    driver: overlay
+    attachable: true
+  backend-net:
+    driver: overlay
+    attachable: true
+
+secrets:
+  db_name:
+    external: true
+  db_user:
+    external: true
+  db_pass:
+    external: true
+  redis_pass:
+    external: true

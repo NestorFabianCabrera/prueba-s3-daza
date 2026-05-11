@@ -1,0 +1,28 @@
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y \
+    openssh-server vim curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r deployers && \
+    useradd -m -g deployers -s /bin/bash deployer && \
+    passwd -d deployer && \
+    mkdir -p /home/deployer/.ssh && \
+    chmod 700 /home/deployer/.ssh && \
+    chown -R deployer:deployers /home/deployer
+
+RUN useradd -m -s /sbin/nologin monitor && passwd -d monitor
+
+COPY id_ed25519.pub /home/deployer/.ssh/authorized_keys
+RUN chmod 600 /home/deployer/.ssh/authorized_keys && \
+    chown deployer:deployers /home/deployer/.ssh/authorized_keys
+
+COPY sshd_config_server1 /etc/ssh/sshd_config
+COPY banner.txt          /etc/ssh/banner.txt
+RUN ssh-keygen -A
+
+RUN mkdir -p /var/run/sshd
+
+EXPOSE 2223
+
+CMD ["/usr/sbin/sshd", "-D", "-e"]

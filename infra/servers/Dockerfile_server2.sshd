@@ -1,0 +1,26 @@
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y \
+    openssh-server vim curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r operators && \
+    useradd -m -g operators -s /bin/bash operator && \
+    passwd -d operator && \
+    mkdir -p /home/operator/.ssh && \
+    chmod 700 /home/operator/.ssh && \
+    chown -R operator:operators /home/operator
+
+COPY operator_ed25519.pub /home/operator/.ssh/authorized_keys
+RUN chmod 600 /home/operator/.ssh/authorized_keys && \
+    chown operator:operators /home/operator/.ssh/authorized_keys
+
+COPY sshd_config_server2 /etc/ssh/sshd_config
+COPY banner.txt          /etc/ssh/banner.txt
+RUN ssh-keygen -A
+
+RUN mkdir -p /var/run/sshd
+
+EXPOSE 2224
+
+CMD ["/usr/sbin/sshd", "-D", "-e"]
